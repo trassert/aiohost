@@ -37,10 +37,12 @@ The simplest way to check a host. The function will automatically initiate the c
 import asyncio
 from aiohost import check
 
+
 async def main():
     # Check TCP port 443 on google.com using 3 random nodes
     result = await check("tcp", "google.com", port=443, max_nodes=3)
     print(result)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -53,14 +55,16 @@ You can specify exact nodes to use for the check.
 import asyncio
 from aiohost import check
 
+
 async def main():
     result = await check(
         check_type="ping",
         host="1.1.1.1",
         max_nodes=2,
-        nodes=["us1.node.check-host.net", "de1.node.check-host.net"]
+        nodes=["us1.node.check-host.net", "de1.node.check-host.net"],
     )
     print(result)
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -73,6 +77,7 @@ The library raises standard Python exceptions for invalid inputs or API errors.
 import asyncio
 from aiohost import check
 
+
 async def main():
     try:
         # This will raise a ValueError due to invalid port
@@ -81,6 +86,7 @@ async def main():
         print(f"Validation Error: {e}")
     except RuntimeError as e:
         print(f"API Error: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
