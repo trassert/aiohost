@@ -1,0 +1,109 @@
+name: Format, Build & Release
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: astral-sh/ruff-action@v3
+      - run: ruff check --fix && ruff format
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || (git commit -m "chore: auto-format" && git push)
+
+  extract:
+    needs: format
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.VERSION }}
+      name: ${{ steps.meta.outputs.NAME }}
+      tag_exists: ${{ steps.check.outputs.TAG_EXISTS }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: |
+          echo "VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
+          echo "NAME=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['name'])")" >> $GITHUB_OUTPUT
+      - id: check
+        run: |
+          if git rev-parse "v${{ steps.meta.outputs.VERSION }}" >/dev/null 2>&1; then
+            echo "TAG_EXISTS=true" >> $GITHUB_OUTPUT
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    needs: extract
+    runs-on: ubuntu-latest
+    if: needs.extract.outputs.tag_exists == 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    needs: [extract, build]
+    runs-on: ubuntu-latest
+    if: needs.extract.outputs.tag_exists == 'false'
+    outputs:
+      changelog: ${{ steps.changelog.outputs.CHANGELOG }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - id: changelog
+        run: |
+          PREV=$(git describe --tags --abbrev=0 --exclude="v${{ needs.extract.outputs.version }}" HEAD~1 2>/dev/null || echo "")
+          COMMITS=$(git log "${PREV}..HEAD" --oneline --no-decorate)
+          echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+          if [ -z "$COMMITS" ]; then echo "No changes" >> $GITHUB_OUTPUT
+          else echo "$COMMITS" | awk '{print "- [`" $1 "`](https://github.com/${{ github.repository }}/commit/" $1 ") " substr($0, index($0,$2))}' >> $GITHUB_OUTPUT; fi
+          echo "EOF" >> $GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.extract.outputs.version }}
+          name: v${{ needs.extract.outputs.version }}
+          body: ${{ steps.changelog.outputs.CHANGELOG }}
+          files: dist/*
+          make_latest: true
+
+  publish:
+    needs: [extract, release]
+    runs-on: ubuntu-latest
+    if: needs.extract.outputs.tag_exists == 'false'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{ needs.extract.outputs.name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
