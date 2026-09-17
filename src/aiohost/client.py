@@ -66,11 +66,14 @@ async def check(
             res_resp.raise_for_status()
             result = res_resp.json()
 
-            if (result and not any(v is None for v in result.values())) or (time.monotonic() - start_time > max_wait):
+            if (result and not any(v is None for v in result.values())) or (
+                time.monotonic() - start_time > max_wait
+            ):
                 return {"info": data, "result": result}
 
 
 if __name__ == "__main__":
     import json
+
     result = asyncio.run(check("ping", "example.com"))
     print(json.dumps(result, indent=2))
