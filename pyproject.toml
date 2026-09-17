@@ -1,6 +1,6 @@
 [project]
 name = "aiohost"
-version = "0.1.1"
+version = "1.0.0"
 description = "check-host.net async api"
 readme = "README.md"
 license = { file = "LICENSE" }
