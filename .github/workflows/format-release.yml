@@ -13,10 +13,10 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: astral-sh/ruff-action@v3
+      - uses: astral-sh/ruff-action@v4
       - run: ruff check --fix && ruff format
       - run: |
           git config user.name "github-actions[bot]"
@@ -32,7 +32,7 @@ jobs:
       name: ${{ steps.meta.outputs.NAME }}
       tag_exists: ${{ steps.check.outputs.TAG_EXISTS }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,10 +53,10 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.extract.outputs.tag_exists == 'false'
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
       - run: uv build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -68,7 +68,7 @@ jobs:
     outputs:
       changelog: ${{ steps.changelog.outputs.CHANGELOG }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -80,11 +80,11 @@ jobs:
           if [ -z "$COMMITS" ]; then echo "No changes" >> $GITHUB_OUTPUT
           else echo "$COMMITS" | awk '{print "- [`" $1 "`](https://github.com/${{ github.repository }}/commit/" $1 ") " substr($0, index($0,$2))}' >> $GITHUB_OUTPUT; fi
           echo "EOF" >> $GITHUB_OUTPUT
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.extract.outputs.version }}
           name: v${{ needs.extract.outputs.version }}
@@ -100,7 +100,7 @@ jobs:
       name: pypi
       url: https://pypi.org/p/${{ needs.extract.outputs.name }}
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
